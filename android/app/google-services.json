@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "132845238957",
+    "project_id": "my-ecommerce-app-cardana",
+    "storage_bucket": "my-ecommerce-app-cardana.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:132845238957:android:57a2b395513d9e850e2424",
+        "android_client_info": {
+          "package_name": "com.example.ecommerce_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBObfMyKDsPJ0gt0gc3vTm88sUWT6ZKXJM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
