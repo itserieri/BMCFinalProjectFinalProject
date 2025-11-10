@@ -1,6 +1,6 @@
 // Part 1: Imports
-import 'package:ecommerce_app/screens/home_screen.dart';
-import 'package:ecommerce_app/screens/login_screen.dart';
+import 'home_screen.dart';
+import 'login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -11,10 +11,10 @@ class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 1. We use a StreamBuilder to listen for auth changes
-    // CRITICAL: Ensure the StreamBuilder explicitly uses the nullable User? type.
     return StreamBuilder<User?>(
       // 2. This is the stream from Firebase
       stream: FirebaseAuth.instance.authStateChanges(),
+
       // 3. The builder runs every time the auth state changes
       builder: (context, snapshot) {
         // 4. If the snapshot is still loading, show a spinner
@@ -23,10 +23,12 @@ class AuthWrapper extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        // 5. If the snapshot has data, a user is logged in (User? is non-null)
+
+        // 5. If the snapshot has data, a user is logged in
         if (snapshot.hasData) {
           return const HomeScreen(); // Show the home screen
         }
+
         // 6. If the snapshot has no data, no user is logged in
         return const LoginScreen(); // Show the login screen
       },

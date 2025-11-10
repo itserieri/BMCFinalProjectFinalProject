@@ -1,4 +1,4 @@
-import '/screens/home_screen.dart';
+import 'package:ecommerce_app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 
 class OrderSuccessScreen extends StatelessWidget {
