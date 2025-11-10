@@ -10,10 +10,10 @@ import 'package:provider/provider.dart'; // 2. ADD THIS
 import 'package:google_fonts/google_fonts.dart'; // 1. ADD THIS IMPORT
 
 // 2. --- ADD OUR NEW APP COLOR PALETTE ---
-const Color kRichBlack = Color(0xFF0F0F14); // Tokyonight Day Ink Black
-const Color kBrown = Color(0xFF2D79C7); // Tokyonight Day Country Blue
-const Color kLightBrown = Color(0xFF73DACA); // Tokyonight Day Light Green
-const Color kOffWhite = Color(0xFFD5D6DB); // Tokyonight Day Almost White
+const Color kRichBlack = Color(0xFF000000); // Black
+const Color kBrown = Color(0xFFA9A9A9); // Grey
+const Color kLightBrown = Color(0xFFFF0000); // Red
+const Color kOffWhite = Color(0xFFFFFFFF); // White
 // --- END OF COLOR PALETTE ---
 
 void main() async {
