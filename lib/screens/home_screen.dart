@@ -1,55 +1,60 @@
 // Part 1: Imports
-import 'package:ecommerce_app/widgets/product_card.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:ecommerce_app/screens/admin_panel_screen.dart';
-import 'package:ecommerce_app/screens/product_detail_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // 1. ADD THIS IMPORT
+import 'package:ecommerce_app/screens/admin_panel_screen.dart'; // 2. ADD THIS
+import 'package:ecommerce_app/widgets/product_card.dart'; // 1. ADD THIS IMPORT
+import 'package:ecommerce_app/screens/product_detail_screen.dart'; // 1. ADD THIS IMPORT
+import 'package:ecommerce_app/providers/cart_provider.dart'; // 1. ADD THIS
+import 'package:ecommerce_app/screens/cart_screen.dart'; // 2. ADD THIS
+import 'package:provider/provider.dart'; // 3. ADD THIS
+import 'package:ecommerce_app/screens/order_history_screen.dart'; // 1. ADD THIS
+import 'package:ecommerce_app/screens/profile_screen.dart'; // 1. ADD THIS
+import 'package:ecommerce_app/widgets/notification_icon.dart'; // 1. ADD THIS
+import 'package:ecommerce_app/screens/chat_screen.dart';
 
-import 'package:ecommerce_app/providers/cart_provider.dart';
-import 'package:ecommerce_app/screens/cart_screen.dart';
-import 'package:provider/provider.dart';
-import 'package:ecommerce_app/screens/order_history_screen.dart'; // Import is correct now
 
-// Change StatelessWidget to StatefulWidget
+// Part 2: Widget Definition
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  // Create the State class
+  // 4. Create the State class
   State<HomeScreen> createState() => _HomeScreenState();
 }
-// Rename the main class to _HomeScreenState and extend State
+
 class _HomeScreenState extends State<HomeScreen> {
-
-  // A state variable to hold the user's role. Default to 'user'.
+  // 1. A state variable to hold the user's role. Default to 'user'.
   String _userRole = 'user';
-  // Get the current user from Firebase Auth
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
-  // This function runs ONCE when the screen is first created
 
+  // 2. Get the current user from Firebase Auth
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+
+  // 3. This function runs ONCE when the screen is first created
   @override
   void initState() {
     super.initState();
-    // Call our function to get the role as soon as the screen loads
+    // 4. Call our function to get the role as soon as the screen loads
     _fetchUserRole();
   }
 
-  // This is our new function to get data from Firestore
+  // 5. This is our new function to get data from Firestore
   Future<void> _fetchUserRole() async {
-    // If no one is logged in, do nothing
+    // 6. If no one is logged in, do nothing
     if (_currentUser == null) return;
     try {
-      // Go to the 'users' collection, find the document
-      // matching the current user's ID
+      // 7. Go to the 'users' collection, find the document
+      //    matching the current user's ID
       final doc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(_currentUser.uid)
+          .doc(_currentUser!.uid)
           .get();
 
-      // If the document exists...
+      // 8. If the document exists...
       if (doc.exists && doc.data() != null) {
-        // ...call setState() to save the role to our variable
+        // 9. ...call setState() to save the role to our variable
         setState(() {
           _userRole = doc.data()!['role'];
         });
@@ -59,25 +64,57 @@ class _HomeScreenState extends State<HomeScreen> {
       // If there's an error, they'll just keep the 'user' role
     }
   }
-  // Move the _signOut function inside this class
-  Future<void> _signOut() async {
-    try {
-      await FirebaseAuth.instance.signOut();
-    } catch (e) {
-      print('Error signing out: $e');
-    }
-  }
-  // The build method is next...
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        // Use the _currentUser variable we defined
-        title: Text(_currentUser != null ? 'Welcome, ${_currentUser.email}' : 'Home'),
+        title: Image.asset(
+          'assets/images/app_logo.png', // 3. The path to your logo
+          height: 40, // 4. Set a fixed height
+        ),
         actions: [
 
-          // Admin Panel Button
+          // 1. Cart Icon (Unchanged)
+          Consumer<CartProvider>(
+            builder: (context, cart, child) {
+              return Badge(
+                label: Text(cart.itemCount.toString()),
+                isLabelVisible: cart.itemCount > 0,
+                backgroundColor: theme.colorScheme.secondary,
+                child: IconButton(
+                  icon: const Icon(Icons.shopping_cart),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const CartScreen(),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+
+          // 2. --- ADD OUR NEW WIDGET ---
+          const NotificationIcon(),
+          // --- END OF NEW WIDGET ---
+
+          // 3. "My Orders" Icon (Unchanged)
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            tooltip: 'My Orders',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const OrderHistoryScreen(),
+                ),
+              );
+            },
+          ),
+
+          // 4. Admin Icon (Unchanged)
           if (_userRole == 'admin')
             IconButton(
               icon: const Icon(Icons.admin_panel_settings),
@@ -91,84 +128,59 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
 
-          // Cart Icon (Consumer wraps the widget that needs to rebuild)
-          Consumer<CartProvider>(
-            builder: (context, cart, child) {
-              return Badge(
-                label: Text(cart.itemCount.toString()),
-                isLabelVisible: cart.itemCount > 0,
-                child: IconButton(
-                  icon: const Icon(Icons.shopping_cart),
-                  onPressed: () {
-                    // Navigate to the CartScreen
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const CartScreen(),
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-
-          // Order History Button
+          // 5. Profile Icon (Unchanged)
           IconButton(
-            icon: const Icon(Icons.receipt_long), // A "receipt" icon
-            tooltip: 'My Orders',
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Profile',
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => const OrderHistoryScreen(),
+                  builder: (context) => const ProfileScreen(),
                 ),
               );
             },
           ),
-
-          // The logout button (always visible)
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: _signOut, // Call our _signOut function
-          ),
         ],
       ),
+      // ... (body is the same)
       body: StreamBuilder<QuerySnapshot>(
-
-        // This is our query to Firestore
+        // 2. This is our query to Firestore
         stream: FirebaseFirestore.instance
             .collection('products')
-            .orderBy('createdAt', descending: true) // Show newest first
+            .orderBy('createdAt', descending: true) // 3. Show newest first
             .snapshots(),
 
-        // The builder runs every time new data arrives from the stream
+        // 4. The builder runs every time new data arrives from the stream
         builder: (context, snapshot) {
-
-          // STATE 1: While data is loading
+          // 5. STATE 1: While data is loading
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                ));
           }
 
-          // STATE 2: If an error occurs
+          // 6. STATE 2: If an error occurs
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
 
-          // STATE 3: If there's no data (or no products)
+          // 7. STATE 3: If there's no data (or no products)
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
               child: Text('No products found. Add some in the Admin Panel!'),
             );
           }
 
-          // STATE 4: We have data!
+          // 8. STATE 4: We have data!
           // Get the list of product documents from the snapshot
           final products = snapshot.data!.docs;
 
-          // Use GridView.builder for a 2-column grid
+          // 9. Use GridView.builder for a 2-column grid
           return GridView.builder(
             padding: const EdgeInsets.all(10.0),
-            // This configures the grid
+
+            // 10. This configures the grid
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2, // 2 columns
               crossAxisSpacing: 10, // Horizontal space between cards
@@ -178,41 +190,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
             itemCount: products.length,
             itemBuilder: (context, index) {
-              // Get the data for one product
+              // 11. Get the data for one product
               final productDoc = products[index];
+              final productData = productDoc.data() as Map<String, dynamic>;
 
-              // ** --- START OF CRITICAL FIX --- **
-              // 1. Get the raw data first, which can be null
-              final productDataMap = productDoc.data();
-
-              // 2. CHECK FOR NULL: If the document's data is null, skip this item.
-              if (productDataMap == null) {
-                return const SizedBox.shrink();
-              }
-
-              // 3. Cast the non-null data to the expected Map type
-              final productData = productDataMap as Map<String, dynamic>;
-              // ** --- END OF CRITICAL FIX --- **
-
-              // Return the ProductCard
+              // 12. Return our custom ProductCard widget!
               return ProductCard(
-                // Ensure the fields are safely cast and exist in the map
-                productName: productData['name'] as String,
-
-                // FIX FOR PRICE: Safely cast price from 'num' (Firestore number) to double.
-                price: (productData['price'] as num).toDouble(),
-
-                // CRITICAL FIX: Changed 'imageUrl' to the correct 'imageUrl'
-                // Used the null-coalescing operator (??) for the fallback image
-                imageUrl: productData['imageUrl'] as String? ?? 'https://placehold.co/600x400',
-
-                // Add the onTap property to navigate to the detail screen
+                productName: productData['name'],
+                price: productData['price'],
+                imageUrl: productData['imageUrl'],
+                // 4. --- THIS IS THE NEW PART ---
+                //    Add the onTap property
                 onTap: () {
+                  // 5. Navigate to the new screen
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => ProductDetailScreen(
+                        // 6. Pass the data to the new screen
                         productData: productData,
-                        productId: productDoc.id, // Pass the unique ID!
+                        productId: productDoc.id, // 7. Pass the unique ID!
                       ),
                     ),
                   );
@@ -222,6 +218,92 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
+      floatingActionButton: _userRole == 'user'
+          ? StreamBuilder<DocumentSnapshot>( // 2. A new StreamBuilder
+
+        // 3. Listen to *this user's* chat document
+
+        stream: _firestore.collection('chats').doc(_currentUser!.uid).snapshots(),
+
+        builder: (context, snapshot) {
+
+
+
+          int unreadCount = 0;
+
+          // 4. Check if the doc exists and has our count field
+
+          if (snapshot.hasData && snapshot.data!.exists) {
+
+            // Ensure data is not null before casting
+
+            final data = snapshot.data!.data();
+
+            if (data != null) {
+
+              unreadCount = (data as Map<String, dynamic>)['unreadByUserCount'] ?? 0;
+
+            }
+
+          }
+
+
+
+          // 5. --- THE FIX for "trailing not defined" ---
+
+          //    We wrap the FAB in the Badge widget
+
+          return Badge(
+            backgroundColor: theme.colorScheme.secondary,
+
+            // 6. Show the count in the badge
+
+            label: Text('$unreadCount'),
+
+            // 7. Only show the badge if the count is > 0
+
+            isLabelVisible: unreadCount > 0,
+
+            // 8. The FAB is now the *child* of the Badge
+
+            child: FloatingActionButton.extended(
+
+              icon: const Icon(Icons.support_agent),
+
+              label: const Text('Contact Admin'),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+
+              onPressed: () {
+
+                Navigator.of(context).push(
+
+                  MaterialPageRoute(
+
+                    builder: (context) => ChatScreen(
+
+                      chatRoomId: _currentUser!.uid,
+
+                    ),
+
+                  ),
+
+                );
+
+              },
+
+            ),
+
+          );
+
+          // --- END OF FIX ---
+
+        },
+
+      )
+
+          : null, // 9. If admin, don't show the FAB
+
     );
   }
 }

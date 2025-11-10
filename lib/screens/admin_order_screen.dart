@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Part B: The Screen Layout
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // We'll use this for dates again
+
 class AdminOrderScreen extends StatefulWidget {
   const AdminOrderScreen({super.key});
 
@@ -10,54 +11,54 @@ class AdminOrderScreen extends StatefulWidget {
 }
 
 class _AdminOrderScreenState extends State<AdminOrderScreen> {
-  // A simple list of available statuses for the dialog
-  final List<String> statuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+  // 1. Get an instance of Firestore
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // 1. Helper function to determine the status chip color
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Pending':
-        return Colors.orange;
-      case 'Processing':
-        return Colors.blue;
-      case 'Shipped':
-        return Colors.deepPurple;
-      case 'Delivered':
-        return Colors.green;
-      case 'Cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  // 2. Function to update the order status in Firestore (Part C)
-  Future<void> _updateOrderStatus(String orderId, String newStatus) async {
+  // 1. MODIFY this function to accept userId
+  Future<void> _updateOrderStatus(String orderId, String newStatus, String userId) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(orderId)
-          .update({'status': newStatus});
+      // 2. This part is the same (update the order)
+      await _firestore.collection('orders').doc(orderId).update({
+        'status': newStatus,
+      });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Order $orderId status updated to $newStatus')),
-        );
-      }
+      // 3. --- ADD THIS NEW LOGIC ---
+      //    Create a new notification document
+      await _firestore.collection('notifications').add({
+        'userId': userId, // 4. The user this notification is for
+        'title': 'Order Status Updated',
+        'body': 'Your order ($orderId) has been updated to "$newStatus".',
+        'orderId': orderId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'isRead': false, // 5. Mark it as unread
+      });
+      // --- END OF NEW LOGIC ---
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order status updated!')),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update status: $e')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
     }
   }
 
-  // 3. Function to show the status selection dialog
-  void _showStatusDialog(String orderId, String currentStatus) {
+  // 1. MODIFY this function to accept userId
+  void _showStatusDialog(String orderId, String currentStatus, String userId) {
     showDialog(
-      context: context,
-      builder: (context) {
+      context: context, // This is the main screen's context
+      builder: (dialogContext) {
+        const statuses = [
+          'Pending',
+          'Processing',
+          'Shipped',
+          'Delivered',
+          'Cancelled',
+        ];
+
         return AlertDialog(
           title: const Text('Update Order Status'),
           content: Column(
@@ -65,15 +66,23 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> {
             children: statuses.map((status) {
               return ListTile(
                 title: Text(status),
-                // Show a checkmark for the current status
-                trailing: status == currentStatus ? const Icon(Icons.check, color: Colors.green) : null,
+                trailing: currentStatus == status
+                    ? const Icon(Icons.check)
+                    : null,
                 onTap: () {
-                  Navigator.of(context).pop(); // Close the dialog
-                  _updateOrderStatus(orderId, status); // Update status
+                  // 2. PASS userId to our update function
+                  _updateOrderStatus(orderId, status, userId);
+                  Navigator.of(dialogContext).pop();
                 },
               );
             }).toList(),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
         );
       },
     );
@@ -82,67 +91,96 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Orders'),
-      ),
-      // Part B: Fetching all orders
+      appBar: AppBar(title: const Text('Manage Orders')),
+      // 1. Use a StreamBuilder to get all orders
       body: StreamBuilder<QuerySnapshot>(
-        // 4. Query: Get ALL orders, sorted by newest first
-        stream: FirebaseFirestore.instance
+        // 2. This is our query
+        stream: _firestore
             .collection('orders')
-            .orderBy('orderDate', descending: true)
+            .orderBy('createdAt', descending: true) // Newest first
             .snapshots(),
 
         builder: (context, snapshot) {
+          // 3. Handle all states: loading, error, empty
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
-
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No orders found.'),
-            );}
+            return const Center(child: Text('No orders found.'));
+          }
 
+          // 4. We have the orders!
           final orders = snapshot.data!.docs;
 
           return ListView.builder(
-          itemCount: orders.length,
-          itemBuilder: (context, index) {
-          final orderDoc = orders[index];
-          final orderId = orderDoc.id;
-          final orderData = orderDoc.data() as Map<String, dynamic>;
+            itemCount: orders.length,
+            itemBuilder: (context, index) {
+              final order = orders[index];
+              // --- NULL-SAFE DATA HANDLING ---
+              // This prevents crashes if data is missing
+              final orderData = order.data() as Map<String, dynamic>;
 
-          // Data extraction with safe fallbacks
-          final currentStatus = orderData['status'] as String? ?? 'Pending';
-          final total = (orderData['totalPrice'] as num? ?? 0.0).toDouble();
-          final userId = orderData['userId'] as String? ?? 'N/A';
+              final Timestamp? timestamp = orderData['createdAt'];
+              final String formattedDate = timestamp != null
+                  ? DateFormat('MM/dd/yyyy hh:mm a').format(timestamp.toDate())
+                  : 'No date';
 
-          return Card(
-          elevation: 1,
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          // 5. onTap: Call the dialog function
-          child: ListTile(
-          onTap: () => _showStatusDialog(orderId, currentStatus),
+              final String status = orderData['status'] ?? 'Unknown';
+              final double totalPrice =
+              (orderData['totalPrice'] ?? 0.0) as double;
+              final String formattedTotal = '₱${totalPrice.toStringAsFixed(2)}';
+              final String userId = orderData['userId'] ?? 'Unknown User';
+              // --- END OF NULL-SAFE DATA HANDLING ---
 
-          // Display key details
-          title: Text('Order ID: $orderId', style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text('User ID: $userId\nTotal: ₱${total.toStringAsFixed(2)}'),
-          isThreeLine: true,
+              // 7. Build a Card for each order
+              return Card(
+                margin: const EdgeInsets.all(8.0),
+                child: ListTile(
+                  title: Text(
+                    'Order ID: ${order.id}', // Show the doc ID
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'User: ${orderData['userId']}\n'
+                        'Total: ₱${(orderData['totalPrice']).toStringAsFixed(2)} | Date: $formattedDate',
+                  ),
+                  isThreeLine: true,
 
-          // Display the colored status chip
-          trailing: Chip(
-          label: Text(
-          currentStatus,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: _getStatusColor(currentStatus),
-          ),
-          ),
-          );
-          },
+                  // 8. Show the status with a colored chip
+                  trailing: Chip(
+                    label: Text(
+                      status,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    backgroundColor: status == 'Pending'
+                        ? Colors.orange
+                        : status == 'Processing'
+                        ? Colors.blue
+                        : status == 'Shipped'
+                        ? Colors.deepPurple
+                        : status == 'Delivered'
+                        ? Colors.green
+                        : Colors.red,
+                  ),
+
+                  // 9. On tap, show our update dialog
+                  onTap: () {
+                    // 3. PASS userId from the order data to our dialog
+                    _showStatusDialog(order.id, status, userId);
+                  },
+                ),
+              );
+            },
           );
         },
       ),

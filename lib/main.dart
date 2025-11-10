@@ -10,7 +10,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:ecommerce_app/providers/cart_provider.dart'; // 1. ADD THIS
 import 'package:provider/provider.dart'; // 2. ADD THIS
-
+// FIX: ADDED MISSING FIREBASE AUTH IMPORT
+import 'package:firebase_auth/firebase_auth.dart';
 
 
 void main() async {
@@ -21,13 +22,22 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+// FIX: ADDED FIREBASE PERSISTENCE
+  await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+
+// FIX: MANUAL CARTPROVIDER CREATION
+  final cartProvider = CartProvider();
+// FIX: CALL THE NEW INITIALIZER METHOD
+  cartProvider.initializeAuthListener();
+
 // 3. `Run` the app (from Module 1)
   // This is the line we're changing
   runApp(
     // 2. We wrap our app in the provider
-    ChangeNotifierProvider(
+    ChangeNotifierProvider.value( // FIX: Changed to .value to pass existing instance
       // 3. This "creates" one instance of our cart
-      create: (context) => CartProvider(),
+      value: cartProvider, // FIX: Use the existing instance
       // 4. The child is our normal app
       child: const MyApp(),
     ),
